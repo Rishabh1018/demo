@@ -1,8 +1,8 @@
 /// <reference types="vite/client" />
 
 interface ImportMetaEnv {
-  readonly VITE_SUPABASE_URL: string
-  readonly VITE_SUPABASE_ANON_KEY: string
+  readonly VITE_SUPABASE_URL: 'https://zwbcykxbhzdlguitovdy.supabase.co'
+  readonly VITE_SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp3YmN5a3hiaHpkbGd1aXRvdmR5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgxMzAwMDgsImV4cCI6MjA3MzcwNjAwOH0.gGjdnrAuKKSE74Hv_kmHRoHb5KHqtr2Mi-msqdX4nn0'
 }
 
 interface ImportMeta {
