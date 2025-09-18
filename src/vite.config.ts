@@ -16,7 +16,15 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    sourcemap: true,
+    sourcemap: false,
+    rollupOptions: {
+      output: {
+        manualChunks: undefined,
+      },
+    },
   },
   envPrefix: 'VITE_',
+  optimizeDeps: {
+    exclude: ['lucide-react'],
+  },
 })

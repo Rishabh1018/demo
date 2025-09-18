@@ -29,6 +29,20 @@
       "@/styles/*": ["./styles/*"]
     }
   },
-  "include": ["**/*.ts", "**/*.tsx"],
-  "exclude": ["node_modules", "dist", "supabase/functions"]
+  "include": [
+    "components/**/*",
+    "utils/**/*",
+    "styles/**/*",
+    "App.tsx",
+    "main.tsx",
+    "vite-env.d.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "build", 
+    "supabase/**/*",
+    "**/*.test.*",
+    "**/*.spec.*"
+  ]
 }

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
@@ -32,6 +32,7 @@ export function BookingSystem() {
   const [sessionType, setSessionType] = useState<string>('')
   const [concerns, setConcerns] = useState<string>('')
   const [isBooked, setIsBooked] = useState(false)
+  const [counselorRatings, setCounselorRatings] = useState<{[key: string]: {rating: number, reviewCount: number}}>({})
 
   const counselors: Counselor[] = [
     {
@@ -89,6 +90,34 @@ export function BookingSystem() {
     { value: 'crisis', label: 'Crisis Intervention (30 min)' },
     { value: 'consultation', label: 'Initial Consultation (30 min)' }
   ]
+
+  useEffect(() => {
+    // Fetch updated counselor ratings
+    const fetchCounselorRatings = async () => {
+      const ratings: {[key: string]: {rating: number, reviewCount: number}} = {}
+      
+      for (const counselor of counselors) {
+        try {
+          const result = await api.getCounselorRating(counselor.id)
+          ratings[counselor.id] = {
+            rating: result.rating || counselor.rating, // Fallback to default rating
+            reviewCount: result.reviewCount || 0
+          }
+        } catch (error) {
+          console.error(`Failed to fetch rating for ${counselor.name}:`, error)
+          // Use default rating on error
+          ratings[counselor.id] = {
+            rating: counselor.rating,
+            reviewCount: 0
+          }
+        }
+      }
+      
+      setCounselorRatings(ratings)
+    }
+
+    fetchCounselorRatings()
+  }, [])
 
   const handleBooking = async () => {
     if (selectedDate && selectedCounselor && selectedTime && sessionType) {

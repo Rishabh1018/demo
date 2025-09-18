@@ -103,7 +103,10 @@ app.post("/make-server-11376ee3/community/posts", async (c) => {
       id: postId,
       timestamp: new Date().toISOString(),
       likes: 0,
-      replies: 0
+      dislikes: 0,
+      replies: 0,
+      views: 0,
+      status: 'active'
     };
     
     await kv.set(postId, postData);
@@ -128,6 +131,152 @@ app.get("/make-server-11376ee3/community/posts", async (c) => {
   } catch (error) {
     console.log('Error fetching posts:', error);
     return c.json({ error: 'Failed to fetch posts' }, 500);
+  }
+});
+
+// Post voting endpoints
+app.post("/make-server-11376ee3/posts/:postId/vote", async (c) => {
+  try {
+    const postId = c.req.param('postId');
+    const { type, userId } = await c.req.json(); // type: 'like' | 'dislike'
+    
+    const post = await kv.get(postId);
+    if (!post) {
+      return c.json({ error: 'Post not found' }, 404);
+    }
+    
+    // Store vote information
+    const voteId = `vote_${postId}_${userId}`;
+    const existingVote = await kv.get(voteId);
+    
+    let updatedPost = { ...post };
+    
+    if (existingVote) {
+      // Remove previous vote
+      if (existingVote.type === 'like') {
+        updatedPost.likes = (updatedPost.likes || 0) - 1;
+      } else {
+        updatedPost.dislikes = (updatedPost.dislikes || 0) - 1;
+      }
+      
+      // If same vote type, remove it; if different, add new vote
+      if (existingVote.type !== type) {
+        if (type === 'like') {
+          updatedPost.likes = (updatedPost.likes || 0) + 1;
+        } else {
+          updatedPost.dislikes = (updatedPost.dislikes || 0) + 1;
+        }
+        await kv.set(voteId, { type, userId, postId, timestamp: new Date().toISOString() });
+      } else {
+        await kv.del(voteId);
+      }
+    } else {
+      // New vote
+      if (type === 'like') {
+        updatedPost.likes = (updatedPost.likes || 0) + 1;
+      } else {
+        updatedPost.dislikes = (updatedPost.dislikes || 0) + 1;
+      }
+      await kv.set(voteId, { type, userId, postId, timestamp: new Date().toISOString() });
+    }
+    
+    await kv.set(postId, updatedPost);
+    
+    return c.json({ success: true, post: updatedPost });
+  } catch (error) {
+    console.log('Error voting on post:', error);
+    return c.json({ error: 'Failed to vote on post' }, 500);
+  }
+});
+
+// Comments endpoints
+app.post("/make-server-11376ee3/posts/:postId/comments", async (c) => {
+  try {
+    const postId = c.req.param('postId');
+    const comment = await c.req.json();
+    const commentId = `comment_${postId}_${Date.now()}`;
+    
+    const commentData = {
+      ...comment,
+      id: commentId,
+      postId,
+      timestamp: new Date().toISOString(),
+      likes: 0,
+      dislikes: 0,
+      status: 'active'
+    };
+    
+    await kv.set(commentId, commentData);
+    
+    // Update post reply count
+    const post = await kv.get(postId);
+    if (post) {
+      const updatedPost = {
+        ...post,
+        replies: (post.replies || 0) + 1
+      };
+      await kv.set(postId, updatedPost);
+    }
+    
+    return c.json({ success: true, comment: commentData });
+  } catch (error) {
+    console.log('Error creating comment:', error);
+    return c.json({ error: 'Failed to create comment' }, 500);
+  }
+});
+
+app.get("/make-server-11376ee3/posts/:postId/comments", async (c) => {
+  try {
+    const postId = c.req.param('postId');
+    const allComments = await kv.getByPrefix(`comment_${postId}`);
+    
+    // Sort by timestamp (oldest first for comments)
+    const sortedComments = allComments.sort((a, b) => 
+      new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+    );
+    
+    return c.json({ comments: sortedComments });
+  } catch (error) {
+    console.log('Error fetching comments:', error);
+    return c.json({ error: 'Failed to fetch comments' }, 500);
+  }
+});
+
+// Moderation endpoints
+app.post("/make-server-11376ee3/reports", async (c) => {
+  try {
+    const report = await c.req.json();
+    const reportId = `report_${Date.now()}`;
+    
+    const reportData = {
+      ...report,
+      id: reportId,
+      timestamp: new Date().toISOString(),
+      status: 'pending'
+    };
+    
+    await kv.set(reportId, reportData);
+    
+    return c.json({ success: true, report: reportData });
+  } catch (error) {
+    console.log('Error creating report:', error);
+    return c.json({ error: 'Failed to create report' }, 500);
+  }
+});
+
+app.get("/make-server-11376ee3/reports", async (c) => {
+  try {
+    const reports = await kv.getByPrefix("report_");
+    
+    // Sort by timestamp (newest first)
+    const sortedReports = reports.sort((a, b) => 
+      new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    );
+    
+    return c.json({ reports: sortedReports });
+  } catch (error) {
+    console.log('Error fetching reports:', error);
+    return c.json({ error: 'Failed to fetch reports' }, 500);
   }
 });
 
@@ -162,6 +311,88 @@ app.get("/make-server-11376ee3/admin/analytics", async (c) => {
     return c.json({ error: 'Failed to fetch analytics' }, 500);
   }
 });
+
+// Review endpoints
+app.post("/make-server-11376ee3/reviews", async (c) => {
+  try {
+    const review = await c.req.json();
+    const reviewId = `review_${review.sessionId}_${Date.now()}`;
+    
+    const reviewData = {
+      ...review,
+      id: reviewId,
+      timestamp: new Date().toISOString()
+    };
+    
+    await kv.set(reviewId, reviewData);
+    
+    // Update counselor's average rating
+    await updateCounselorRating(review.counselorId);
+    
+    return c.json({ success: true, review: reviewData });
+  } catch (error) {
+    console.log('Error submitting review:', error);
+    return c.json({ error: 'Failed to submit review' }, 500);
+  }
+});
+
+app.get("/make-server-11376ee3/reviews/counselor/:counselorId", async (c) => {
+  try {
+    const counselorId = c.req.param('counselorId');
+    const allReviews = await kv.getByPrefix("review_");
+    
+    const counselorReviews = allReviews.filter(review => 
+      review.counselorId === counselorId
+    );
+    
+    return c.json({ reviews: counselorReviews });
+  } catch (error) {
+    console.log('Error fetching counselor reviews:', error);
+    return c.json({ error: 'Failed to fetch reviews' }, 500);
+  }
+});
+
+app.get("/make-server-11376ee3/counselors/:counselorId/rating", async (c) => {
+  try {
+    const counselorId = c.req.param('counselorId');
+    const ratingData = await kv.get(`counselor_rating_${counselorId}`);
+    
+    if (ratingData) {
+      return c.json({ rating: ratingData.averageRating, reviewCount: ratingData.reviewCount });
+    } else {
+      return c.json({ rating: 0, reviewCount: 0 });
+    }
+  } catch (error) {
+    console.log('Error fetching counselor rating:', error);
+    return c.json({ error: 'Failed to fetch rating' }, 500);
+  }
+});
+
+// Helper function to update counselor rating
+async function updateCounselorRating(counselorId: string) {
+  try {
+    const allReviews = await kv.getByPrefix("review_");
+    const counselorReviews = allReviews.filter(review => 
+      review.counselorId === counselorId
+    );
+    
+    if (counselorReviews.length > 0) {
+      const totalRating = counselorReviews.reduce((sum, review) => sum + review.rating, 0);
+      const averageRating = Math.round((totalRating / counselorReviews.length) * 10) / 10; // Round to 1 decimal
+      
+      const ratingData = {
+        counselorId,
+        averageRating,
+        reviewCount: counselorReviews.length,
+        lastUpdated: new Date().toISOString()
+      };
+      
+      await kv.set(`counselor_rating_${counselorId}`, ratingData);
+    }
+  } catch (error) {
+    console.log('Error updating counselor rating:', error);
+  }
+}
 
 // Wellness tracking
 app.post("/make-server-11376ee3/wellness/assessment", async (c) => {

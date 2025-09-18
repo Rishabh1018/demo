@@ -67,6 +67,35 @@ class ApiClient {
     return this.request('/community/posts')
   }
 
+  async voteOnPost(postId: string, type: 'like' | 'dislike', userId: string) {
+    return this.request(`/posts/${postId}/vote`, {
+      method: 'POST',
+      body: JSON.stringify({ type, userId })
+    })
+  }
+
+  async createComment(postId: string, comment: any) {
+    return this.request(`/posts/${postId}/comments`, {
+      method: 'POST',
+      body: JSON.stringify(comment)
+    })
+  }
+
+  async getComments(postId: string) {
+    return this.request(`/posts/${postId}/comments`)
+  }
+
+  async createReport(report: any) {
+    return this.request('/reports', {
+      method: 'POST',
+      body: JSON.stringify(report)
+    })
+  }
+
+  async getReports() {
+    return this.request('/reports')
+  }
+
   // Admin analytics
   async getAnalytics() {
     return this.request('/admin/analytics')
@@ -82,6 +111,22 @@ class ApiClient {
 
   async getWellnessData(userId: string) {
     return this.request(`/wellness/${userId}`)
+  }
+
+  // Reviews
+  async submitReview(review: any) {
+    return this.request('/reviews', {
+      method: 'POST',
+      body: JSON.stringify(review)
+    })
+  }
+
+  async getCounselorReviews(counselorId: string) {
+    return this.request(`/reviews/counselor/${counselorId}`)
+  }
+
+  async getCounselorRating(counselorId: string) {
+    return this.request(`/counselors/${counselorId}/rating`)
   }
 }
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
@@ -31,10 +31,7 @@ import {
   AlertTriangle,
   CheckCircle,
   Edit,
-  Trash2,
-  Calendar,
-  Settings,
-  UserPlus
+  Trash2
 } from 'lucide-react'
 import { api, DEMO_USER_ID } from '../utils/api'
 import { projectId, publicAnonKey } from '../utils/supabase/info'
@@ -122,29 +119,6 @@ export function PeerSupport() {
   const [reportReason, setReportReason] = useState('')
   const [reportTarget, setReportTarget] = useState<{type: 'post' | 'comment', id: string} | null>(null)
 
-  // Support Groups
-  const [showCreateGroupForm, setShowCreateGroupForm] = useState(false)
-  const [selectedGroup, setSelectedGroup] = useState<SupportGroup | null>(null)
-  const [showGroupDetail, setShowGroupDetail] = useState(false)
-  const [newGroupName, setNewGroupName] = useState('')
-  const [newGroupDescription, setNewGroupDescription] = useState('')
-  const [newGroupCategory, setNewGroupCategory] = useState('')
-  const [newGroupPrivacy, setNewGroupPrivacy] = useState<'public' | 'private'>('public')
-  const [newGroupMeetingTime, setNewGroupMeetingTime] = useState('')
-  
-  // Group Chat and Meeting
-  const [showGroupChat, setShowGroupChat] = useState(false)
-  const [showScheduleMeeting, setShowScheduleMeeting] = useState(false)
-  const [groupChatMessages, setGroupChatMessages] = useState<any[]>([])
-  const [newGroupMessage, setNewGroupMessage] = useState('')
-  const [meetingTitle, setMeetingTitle] = useState('')
-  const [meetingDate, setMeetingDate] = useState('')
-  const [meetingTime, setMeetingTime] = useState('')
-  const [meetingDescription, setMeetingDescription] = useState('')
-  
-  // Chat scroll reference
-  const chatEndRef = useRef<HTMLDivElement>(null)
-
   const categories = [
     { value: 'anxiety', label: 'Anxiety & Panic', color: 'bg-blue-100 text-blue-800' },
     { value: 'depression', label: 'Depression & Mood', color: 'bg-purple-100 text-purple-800' },
@@ -159,13 +133,6 @@ export function PeerSupport() {
     fetchPosts()
     fetchSupportGroups()
   }, [])
-
-  // Auto-scroll to bottom of chat when new messages are added
-  useEffect(() => {
-    if (showGroupChat && chatEndRef.current) {
-      chatEndRef.current.scrollIntoView({ behavior: 'smooth' })
-    }
-  }, [groupChatMessages, showGroupChat])
 
   const fetchPosts = async () => {
     try {
@@ -194,28 +161,6 @@ export function PeerSupport() {
   }
 
   const fetchSupportGroups = async () => {
-    try {
-      // Try to fetch from backend first
-      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-11376ee3/support-groups`, {
-        headers: {
-          'Authorization': `Bearer ${publicAnonKey}`,
-          'Content-Type': 'application/json'
-        }
-      })
-      
-      if (response.ok) {
-        const result = await response.json()
-        setSupportGroups(result.groups || [])
-      } else {
-        generateSampleGroups()
-      }
-    } catch (error) {
-      console.error('Failed to fetch support groups:', error)
-      generateSampleGroups()
-    }
-  }
-
-  const generateSampleGroups = () => {
     // For now, use sample data - in production this would come from backend
     const sampleGroups: SupportGroup[] = [
       {
@@ -720,345 +665,6 @@ export function PeerSupport() {
     }
   }
 
-  const handleCreateGroup = async () => {
-    if (newGroupName.trim() && newGroupDescription.trim() && newGroupCategory) {
-      try {
-        const groupData = {
-          name: newGroupName,
-          description: newGroupDescription,
-          category: newGroupCategory,
-          privacy: newGroupPrivacy,
-          nextMeeting: newGroupMeetingTime,
-          moderator: 'Current User'
-        }
-
-        const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-11376ee3/support-groups`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${publicAnonKey}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(groupData)
-        })
-
-        if (response.ok) {
-          const result = await response.json()
-          setSupportGroups(prev => [result.group, ...prev])
-        } else {
-          // Fallback to local state
-          const newGroup: SupportGroup = {
-            id: Date.now().toString(),
-            name: newGroupName,
-            description: newGroupDescription,
-            category: newGroupCategory,
-            privacy: newGroupPrivacy,
-            nextMeeting: newGroupMeetingTime || 'TBD',
-            moderator: 'Current User',
-            members: 1,
-            isActive: true,
-            isJoined: true
-          }
-          setSupportGroups(prev => [newGroup, ...prev])
-        }
-        
-        // Reset form
-        setNewGroupName('')
-        setNewGroupDescription('')
-        setNewGroupCategory('')
-        setNewGroupPrivacy('public')
-        setNewGroupMeetingTime('')
-        setShowCreateGroupForm(false)
-      } catch (error) {
-        console.error('Failed to create group:', error)
-        // Create locally as fallback
-        const newGroup: SupportGroup = {
-          id: Date.now().toString(),
-          name: newGroupName,
-          description: newGroupDescription,
-          category: newGroupCategory,
-          privacy: newGroupPrivacy,
-          nextMeeting: newGroupMeetingTime || 'TBD',
-          moderator: 'Current User',
-          members: 1,
-          isActive: true,
-          isJoined: true
-        }
-        setSupportGroups(prev => [newGroup, ...prev])
-        
-        // Reset form
-        setNewGroupName('')
-        setNewGroupDescription('')
-        setNewGroupCategory('')
-        setNewGroupPrivacy('public')
-        setNewGroupMeetingTime('')
-        setShowCreateGroupForm(false)
-      }
-    }
-  }
-
-  const handleJoinGroup = async (groupId: string) => {
-    try {
-      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-11376ee3/support-groups/${groupId}/join`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${publicAnonKey}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ userId: DEMO_USER_ID })
-      })
-
-      if (response.ok) {
-        setSupportGroups(prev => prev.map(group => 
-          group.id === groupId 
-            ? { ...group, isJoined: true, members: group.members + 1 }
-            : group
-        ))
-      } else {
-        // Fallback to local state
-        setSupportGroups(prev => prev.map(group => 
-          group.id === groupId 
-            ? { ...group, isJoined: true, members: group.members + 1 }
-            : group
-        ))
-      }
-    } catch (error) {
-      console.error('Failed to join group:', error)
-      // Update local state as fallback
-      setSupportGroups(prev => prev.map(group => 
-        group.id === groupId 
-          ? { ...group, isJoined: true, members: group.members + 1 }
-          : group
-      ))
-    }
-  }
-
-  const handleLeaveGroup = async (groupId: string) => {
-    try {
-      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-11376ee3/support-groups/${groupId}/leave`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${publicAnonKey}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ userId: DEMO_USER_ID })
-      })
-
-      if (response.ok) {
-        setSupportGroups(prev => prev.map(group => 
-          group.id === groupId 
-            ? { ...group, isJoined: false, members: Math.max(0, group.members - 1) }
-            : group
-        ))
-      } else {
-        // Fallback to local state
-        setSupportGroups(prev => prev.map(group => 
-          group.id === groupId 
-            ? { ...group, isJoined: false, members: Math.max(0, group.members - 1) }
-            : group
-        ))
-      }
-    } catch (error) {
-      console.error('Failed to leave group:', error)
-      // Update local state as fallback
-      setSupportGroups(prev => prev.map(group => 
-        group.id === groupId 
-          ? { ...group, isJoined: false, members: Math.max(0, group.members - 1) }
-          : group
-      ))
-    }
-  }
-
-  const handleViewGroupDetail = (group: SupportGroup) => {
-    setSelectedGroup(group)
-    setShowGroupDetail(true)
-  }
-
-  const handleOpenGroupChat = (group: SupportGroup) => {
-    setSelectedGroup(group)
-    setShowGroupDetail(false)
-    setShowGroupChat(true)
-    loadGroupChatMessages(group.id)
-  }
-
-  const handleScheduleMeeting = (group: SupportGroup) => {
-    setSelectedGroup(group)
-    setShowGroupDetail(false)
-    setShowScheduleMeeting(true)
-  }
-
-  const loadGroupChatMessages = async (groupId: string) => {
-    try {
-      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-11376ee3/support-groups/${groupId}/messages`, {
-        headers: {
-          'Authorization': `Bearer ${publicAnonKey}`,
-          'Content-Type': 'application/json'
-        }
-      })
-      
-      if (response.ok) {
-        const result = await response.json()
-        setGroupChatMessages(result.messages || [])
-      } else {
-        // Fallback to sample messages for demo
-        loadSampleGroupMessages(groupId)
-      }
-    } catch (error) {
-      console.error('Failed to load group chat messages:', error)
-      loadSampleGroupMessages(groupId)
-    }
-  }
-
-  const loadSampleGroupMessages = (groupId: string) => {
-    const sampleMessages = [
-      {
-        id: '1',
-        groupId,
-        userId: 'user1',
-        author: 'Sarah M.',
-        avatar: 'SM',
-        content: 'Hi everyone! Looking forward to our discussion today.',
-        timestamp: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
-        isAnonymous: false
-      },
-      {
-        id: '2',
-        groupId,
-        userId: 'user2',
-        author: 'Anonymous',
-        avatar: '?',
-        content: 'Thanks for organizing this group. It\'s been really helpful.',
-        timestamp: new Date(Date.now() - 20 * 60 * 1000).toISOString(),
-        isAnonymous: true
-      },
-      {
-        id: '3',
-        groupId,
-        userId: 'user3',
-        author: 'Mike K.',
-        avatar: 'MK',
-        content: 'Does anyone have tips for managing study anxiety?',
-        timestamp: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
-        isAnonymous: false
-      }
-    ]
-    setGroupChatMessages(sampleMessages)
-  }
-
-  const handleSendGroupMessage = async () => {
-    if (newGroupMessage.trim() && selectedGroup) {
-      const messageData = {
-        userId: DEMO_USER_ID,
-        author: 'Current User',
-        content: newGroupMessage,
-        isAnonymous: false
-      }
-
-      try {
-        const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-11376ee3/support-groups/${selectedGroup.id}/messages`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${publicAnonKey}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(messageData)
-        })
-
-        if (response.ok) {
-          const result = await response.json()
-          setGroupChatMessages(prev => [...prev, result.message])
-        } else {
-          // Fallback to local state
-          const newMessage = {
-            id: Date.now().toString(),
-            groupId: selectedGroup.id,
-            userId: DEMO_USER_ID,
-            author: 'Current User',
-            avatar: 'CU',
-            content: newGroupMessage,
-            timestamp: new Date().toISOString(),
-            isAnonymous: false
-          }
-          setGroupChatMessages(prev => [...prev, newMessage])
-        }
-      } catch (error) {
-        console.error('Failed to send group message:', error)
-        // Fallback to local state
-        const newMessage = {
-          id: Date.now().toString(),
-          groupId: selectedGroup.id,
-          userId: DEMO_USER_ID,
-          author: 'Current User',
-          avatar: 'CU',
-          content: newGroupMessage,
-          timestamp: new Date().toISOString(),
-          isAnonymous: false
-        }
-        setGroupChatMessages(prev => [...prev, newMessage])
-      }
-
-      setNewGroupMessage('')
-    }
-  }
-
-  const handleCreateMeeting = async () => {
-    if (meetingTitle.trim() && meetingDate && meetingTime && selectedGroup) {
-      const meetingData = {
-        groupId: selectedGroup.id,
-        title: meetingTitle,
-        description: meetingDescription,
-        date: meetingDate,
-        time: meetingTime,
-        organizer: 'Current User'
-      }
-
-      try {
-        const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-11376ee3/support-groups/${selectedGroup.id}/meetings`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${publicAnonKey}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(meetingData)
-        })
-
-        if (response.ok) {
-          // Update the group's next meeting time
-          setSupportGroups(prev => prev.map(group => 
-            group.id === selectedGroup.id 
-              ? { ...group, nextMeeting: `${meetingDate} ${meetingTime}` }
-              : group
-          ))
-          
-          alert('Meeting scheduled successfully!')
-        } else {
-          // Fallback to local state update
-          setSupportGroups(prev => prev.map(group => 
-            group.id === selectedGroup.id 
-              ? { ...group, nextMeeting: `${meetingDate} ${meetingTime}` }
-              : group
-          ))
-          alert('Meeting scheduled successfully!')
-        }
-      } catch (error) {
-        console.error('Failed to schedule meeting:', error)
-        // Fallback to local state update
-        setSupportGroups(prev => prev.map(group => 
-          group.id === selectedGroup.id 
-            ? { ...group, nextMeeting: `${meetingDate} ${meetingTime}` }
-            : group
-        ))
-        alert('Meeting scheduled successfully!')
-      }
-
-      // Reset form and close dialog
-      setMeetingTitle('')
-      setMeetingDate('')
-      setMeetingTime('')
-      setMeetingDescription('')
-      setShowScheduleMeeting(false)
-    }
-  }
-
   const filteredPosts = posts.filter(post => {
     const matchesSearch = post.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          post.content.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -1297,35 +903,15 @@ export function PeerSupport() {
                           )}
                           
                           <div className="flex items-center space-x-4 text-sm text-gray-500">
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              className={`h-8 px-2 text-gray-500 hover:text-green-600 ${post.isLiked ? 'text-green-600 bg-green-50' : ''}`}
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleVotePost(post.id, 'like')
-                              }}
-                            >
+                            <div className="flex items-center">
                               <ThumbsUp className="h-4 w-4 mr-1" />
                               {post.likes}
-                            </Button>
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              className={`h-8 px-2 text-gray-500 hover:text-red-600 ${post.isDisliked ? 'text-red-600 bg-red-50' : ''}`}
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleVotePost(post.id, 'dislike')
-                              }}
-                            >
-                              <ThumbsDown className="h-4 w-4 mr-1" />
-                              {post.dislikes}
-                            </Button>
-                            <div className="flex items-center text-gray-500">
+                            </div>
+                            <div className="flex items-center">
                               <MessageCircle className="h-4 w-4 mr-1" />
                               {getCommentCount(post.id)} replies
                             </div>
-                            <div className="flex items-center text-gray-500">
+                            <div className="flex items-center">
                               <Eye className="h-4 w-4 mr-1" />
                               {post.views}
                             </div>
@@ -1340,230 +926,47 @@ export function PeerSupport() {
           </TabsContent>
 
           <TabsContent value="groups" className="space-y-6">
-            {/* Header with Create Group Button */}
             <div className="flex justify-between items-center">
-              <div>
-                <h2 className="text-xl font-semibold">Support Groups</h2>
-                <p className="text-gray-600 text-sm mt-1">Join moderated groups for focused peer support</p>
-              </div>
-              <Button 
-                variant="outline"
-                onClick={() => setShowCreateGroupForm(true)}
-              >
+              <h2 className="text-xl font-semibold">Support Groups</h2>
+              <Button variant="outline">
                 <Plus className="h-4 w-4 mr-2" />
-                Create New Group
+                Request New Group
               </Button>
             </div>
 
-            {/* Create Group Form */}
-            {showCreateGroupForm && (
-              <Card className="border-blue-200 bg-blue-50">
-                <CardHeader>
-                  <CardTitle>Create New Support Group</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="group-name">Group Name</Label>
-                      <Input
-                        id="group-name"
-                        placeholder="e.g., Academic Burnout Support"
-                        value={newGroupName}
-                        onChange={(e) => setNewGroupName(e.target.value)}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="group-category">Category</Label>
-                      <Select value={newGroupCategory} onValueChange={setNewGroupCategory}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select category" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {categories.map(category => (
-                            <SelectItem key={category.value} value={category.value}>
-                              {category.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="group-description">Description</Label>
-                    <Textarea
-                      id="group-description"
-                      placeholder="Describe the purpose and goals of this support group..."
-                      value={newGroupDescription}
-                      onChange={(e) => setNewGroupDescription(e.target.value)}
-                      rows={3}
-                    />
-                  </div>
-
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="group-privacy">Privacy Setting</Label>
-                      <Select value={newGroupPrivacy} onValueChange={(value: 'public' | 'private') => setNewGroupPrivacy(value)}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="public">Public - Anyone can join</SelectItem>
-                          <SelectItem value="private">Private - Invitation only</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label htmlFor="meeting-time">Regular Meeting Time (Optional)</Label>
-                      <Input
-                        id="meeting-time"
-                        placeholder="e.g., Tuesdays 7:00 PM"
-                        value={newGroupMeetingTime}
-                        onChange={(e) => setNewGroupMeetingTime(e.target.value)}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <Button onClick={handleCreateGroup}>
-                      Create Group
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      onClick={() => {
-                        setShowCreateGroupForm(false)
-                        setNewGroupName('')
-                        setNewGroupDescription('')
-                        setNewGroupCategory('')
-                        setNewGroupPrivacy('public')
-                        setNewGroupMeetingTime('')
-                      }}
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Support Groups List */}
             <div className="grid gap-4">
-              {supportGroups.map(group => {
-                const categoryInfo = getCategoryInfo(group.category)
-                return (
-                  <Card key={group.id} className="hover:shadow-md transition-shadow">
-                    <CardContent className="p-6">
-                      <div className="flex justify-between items-start mb-4">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-2">
-                            <h3 className="font-medium">{group.name}</h3>
-                            <Badge className={categoryInfo.color}>
-                              {categoryInfo.label}
-                            </Badge>
+              {supportGroups.map(group => (
+                <Card key={group.id} className="hover:shadow-md transition-shadow">
+                  <CardContent className="p-6">
+                    <div className="flex justify-between items-start mb-4">
+                      <div>
+                        <h3 className="font-semibold mb-1">{group.name}</h3>
+                        <p className="text-gray-600 text-sm mb-2">{group.description}</p>
+                        <div className="flex items-center space-x-4 text-sm text-gray-500">
+                          <div className="flex items-center">
+                            <Users className="h-4 w-4 mr-1" />
+                            {group.members} members
                           </div>
-                          <p className="text-gray-600 text-sm mb-3 max-w-2xl">{group.description}</p>
-                          <div className="flex items-center gap-6 text-sm text-gray-500">
-                            <div className="flex items-center">
-                              <Users className="h-4 w-4 mr-1" />
-                              {group.members} member{group.members !== 1 ? 's' : ''}
-                            </div>
-                            <div className="flex items-center">
-                              <Clock className="h-4 w-4 mr-1" />
-                              Next: {group.nextMeeting}
-                            </div>
-                            <div className="flex items-center">
-                              <Shield className="h-4 w-4 mr-1" />
-                              {group.moderator}
-                            </div>
+                          <div className="flex items-center">
+                            <Clock className="h-4 w-4 mr-1" />
+                            {group.nextMeeting}
                           </div>
-                        </div>
-                        <div className="flex flex-col items-end gap-2 ml-4">
-                          <Badge 
-                            variant={group.privacy === 'public' ? 'default' : 'secondary'}
-                            className="text-xs"
-                          >
-                            {group.privacy === 'public' ? 'Public' : 'Private'}
+                          <Badge variant={group.privacy === 'public' ? 'default' : 'secondary'}>
+                            {group.privacy}
                           </Badge>
-                          <div className="flex gap-2">
-                            <Button 
-                              variant="ghost" 
-                              size="sm"
-                              onClick={() => handleViewGroupDetail(group)}
-                            >
-                              <Eye className="h-4 w-4 mr-1" />
-                              View Details
-                            </Button>
-                            {group.isJoined ? (
-                              <Button 
-                                variant="outline" 
-                                size="sm"
-                                onClick={() => handleLeaveGroup(group.id)}
-                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                              >
-                                Leave Group
-                              </Button>
-                            ) : (
-                              <Button 
-                                variant="default" 
-                                size="sm"
-                                onClick={() => handleJoinGroup(group.id)}
-                                className="bg-blue-600 hover:bg-blue-700"
-                              >
-                                Join Group
-                              </Button>
-                            )}
-                          </div>
                         </div>
                       </div>
-                      
-                      {group.isJoined && (
-                        <div className="border-t pt-4 mt-4">
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm text-green-600 font-medium">
-                              ✓ You are a member of this group
-                            </span>
-                            <div className="flex gap-2">
-                              <Button 
-                                variant="ghost" 
-                                size="sm"
-                                onClick={() => handleOpenGroupChat(group)}
-                              >
-                                <MessageCircle className="h-4 w-4 mr-1" />
-                                Group Chat
-                              </Button>
-                              <Button 
-                                variant="ghost" 
-                                size="sm"
-                                onClick={() => handleScheduleMeeting(group)}
-                              >
-                                <Calendar className="h-4 w-4 mr-1" />
-                                Schedule Meeting
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                )
-              })}
+                      <div className="text-right">
+                        <p className="text-sm text-gray-500 mb-2">Moderator: {group.moderator}</p>
+                        <Button size="sm" variant={group.isJoined ? 'outline' : 'default'}>
+                          {group.isJoined ? 'Joined' : 'Join Group'}
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
-
-            {supportGroups.length === 0 && (
-              <Card>
-                <CardContent className="p-8 text-center">
-                  <Users className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                  <h3 className="text-lg font-medium mb-2">No Support Groups Yet</h3>
-                  <p className="text-gray-600 mb-4">
-                    Be the first to create a support group for your community
-                  </p>
-                  <Button onClick={() => setShowCreateGroupForm(true)}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Create First Group
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
           </TabsContent>
 
           <TabsContent value="resources" className="space-y-6">
@@ -1655,337 +1058,12 @@ export function PeerSupport() {
           </TabsContent>
         </Tabs>
 
-        {/* Group Detail Dialog */}
-        {selectedGroup && (
-          <Dialog open={showGroupDetail} onOpenChange={setShowGroupDetail}>
-            <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-3">
-                  {selectedGroup.name}
-                  <Badge className={getCategoryInfo(selectedGroup.category).color}>
-                    {getCategoryInfo(selectedGroup.category).label}
-                  </Badge>
-                </DialogTitle>
-                <DialogDescription>
-                  Detailed view of the support group with member management and scheduling
-                </DialogDescription>
-              </DialogHeader>
-              
-              <div className="flex-1 overflow-y-auto space-y-6">
-                {/* Group Overview */}
-                <div className="grid md:grid-cols-3 gap-6">
-                  <div className="md:col-span-2">
-                    <h4 className="font-medium mb-2">About This Group</h4>
-                    <p className="text-gray-600 text-sm mb-4">{selectedGroup.description}</p>
-                    
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <span className="font-medium">Moderator:</span>
-                        <p className="text-gray-600">{selectedGroup.moderator}</p>
-                      </div>
-                      <div>
-                        <span className="font-medium">Privacy:</span>
-                        <p className="text-gray-600 capitalize">{selectedGroup.privacy}</p>
-                      </div>
-                      <div>
-                        <span className="font-medium">Members:</span>
-                        <p className="text-gray-600">{selectedGroup.members} active members</p>
-                      </div>
-                      <div>
-                        <span className="font-medium">Next Meeting:</span>
-                        <p className="text-gray-600">{selectedGroup.nextMeeting}</p>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-4">
-                    {selectedGroup.isJoined ? (
-                      <div className="space-y-2">
-                        <Button 
-                          className="w-full" 
-                          variant="outline"
-                          onClick={() => handleOpenGroupChat(selectedGroup)}
-                        >
-                          <MessageCircle className="h-4 w-4 mr-2" />
-                          Open Group Chat
-                        </Button>
-                        <Button 
-                          className="w-full" 
-                          variant="outline"
-                          onClick={() => handleScheduleMeeting(selectedGroup)}
-                        >
-                          <Calendar className="h-4 w-4 mr-2" />
-                          Schedule Meeting
-                        </Button>
-                        <Button className="w-full" variant="outline">
-                          <Settings className="h-4 w-4 mr-2" />
-                          Group Settings
-                        </Button>
-                        <Separator />
-                        <Button 
-                          className="w-full text-red-600 hover:text-red-700 hover:bg-red-50" 
-                          variant="outline"
-                          onClick={() => {
-                            handleLeaveGroup(selectedGroup.id)
-                            setShowGroupDetail(false)
-                          }}
-                        >
-                          Leave Group
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="space-y-2">
-                        <Button 
-                          className="w-full bg-blue-600 hover:bg-blue-700"
-                          onClick={() => {
-                            handleJoinGroup(selectedGroup.id)
-                            setShowGroupDetail(false)
-                          }}
-                        >
-                          <UserPlus className="h-4 w-4 mr-2" />
-                          Join This Group
-                        </Button>
-                        <p className="text-xs text-gray-500 text-center">
-                          {selectedGroup.privacy === 'private' 
-                            ? 'This is a private group. Your request will be reviewed by the moderator.'
-                            : 'Join to participate in group discussions and meetings.'
-                          }
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Group Guidelines */}
-                <div>
-                  <h4 className="font-medium mb-2">Group Guidelines</h4>
-                  <Card className="bg-blue-50 border-blue-200">
-                    <CardContent className="p-4">
-                      <ul className="text-sm text-blue-800 space-y-1">
-                        <li>• Respect all members and their experiences</li>
-                        <li>• Maintain confidentiality of group discussions</li>
-                        <li>• Be supportive and non-judgmental</li>
-                        <li>• Stay on topic related to the group's focus area</li>
-                        <li>• Report any concerning behavior to the moderator</li>
-                      </ul>
-                    </CardContent>
-                  </Card>
-                </div>
-
-                {/* Recent Activity */}
-                <div>
-                  <h4 className="font-medium mb-2">Recent Group Activity</h4>
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-3 text-sm">
-                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                      <span className="text-gray-600">New member Alex joined 2 hours ago</span>
-                    </div>
-                    <div className="flex items-center gap-3 text-sm">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                      <span className="text-gray-600">Group meeting scheduled for tomorrow</span>
-                    </div>
-                    <div className="flex items-center gap-3 text-sm">
-                      <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                      <span className="text-gray-600">3 new discussion topics this week</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
-        )}
-
-        {/* Group Chat Dialog */}
-        {selectedGroup && (
-          <Dialog open={showGroupChat} onOpenChange={setShowGroupChat}>
-            <DialogContent className="max-w-4xl max-h-[85vh] p-0 flex flex-col overflow-hidden">
-              <DialogHeader className="px-6 py-4 border-b flex-shrink-0">
-                <DialogTitle className="flex items-center gap-3">
-                  <MessageCircle className="h-5 w-5" />
-                  {selectedGroup.name} - Group Chat
-                  <Badge className={getCategoryInfo(selectedGroup.category).color}>
-                    {getCategoryInfo(selectedGroup.category).label}
-                  </Badge>
-                </DialogTitle>
-                <DialogDescription>
-                  Participate in group discussions with {selectedGroup.members} members
-                </DialogDescription>
-              </DialogHeader>
-              
-              <div className="flex-1 flex flex-col min-h-0 p-6">
-                {/* Chat Messages */}
-                <div className="flex-1 min-h-0 mb-4">
-                  <ScrollArea className="h-full border rounded-lg p-4 chat-messages bg-gray-50">
-                    <div className="space-y-4 pr-2">
-                      {groupChatMessages.map((message) => (
-                        <div key={message.id} className="flex gap-3">
-                          <Avatar className="w-8 h-8 flex-shrink-0">
-                            <AvatarFallback className="text-xs">
-                              {message.avatar}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="font-medium text-sm text-gray-900">
-                                {message.author}
-                              </span>
-                              <span className="text-xs text-gray-500">
-                                {formatTimeAgo(message.timestamp)}
-                              </span>
-                            </div>
-                            <div className="text-sm text-gray-700 bg-white rounded-lg p-3 shadow-sm border">
-                              {message.content}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                      
-                      {groupChatMessages.length === 0 && (
-                        <div className="text-center py-8 text-gray-500">
-                          <MessageCircle className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                          <p className="text-sm">No messages yet. Start the conversation!</p>
-                        </div>
-                      )}
-                      
-                      {/* Scroll anchor for auto-scroll */}
-                      <div ref={chatEndRef} />
-                    </div>
-                  </ScrollArea>
-                </div>
-
-                {/* Message Input - Fixed at bottom */}
-                <div className="flex-shrink-0 space-y-3">
-                  <div className="flex gap-2">
-                    <Textarea
-                      placeholder="Type your message..."
-                      value={newGroupMessage}
-                      onChange={(e) => setNewGroupMessage(e.target.value)}
-                      className="flex-1 resize-none"
-                      rows={2}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault()
-                          handleSendGroupMessage()
-                        }
-                      }}
-                    />
-                    <Button 
-                      onClick={handleSendGroupMessage}
-                      disabled={!newGroupMessage.trim()}
-                      className="self-end"
-                    >
-                      <Send className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  
-                  <Alert className="bg-blue-50 border-blue-200">
-                    <Shield className="h-4 w-4 text-blue-600" />
-                    <AlertDescription className="text-blue-800 text-xs">
-                      This is a moderated group chat. Be respectful and supportive. 
-                      Messages are reviewed by {selectedGroup.moderator}.
-                    </AlertDescription>
-                  </Alert>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
-        )}
-
-        {/* Schedule Meeting Dialog */}
-        {selectedGroup && (
-          <Dialog open={showScheduleMeeting} onOpenChange={setShowScheduleMeeting}>
-            <DialogContent className="max-w-md">
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-3">
-                  <Calendar className="h-5 w-5" />
-                  Schedule Group Meeting
-                </DialogTitle>
-                <DialogDescription>
-                  Schedule a meeting for {selectedGroup.name}
-                </DialogDescription>
-              </DialogHeader>
-              
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="meeting-title">Meeting Title</Label>
-                  <Input
-                    id="meeting-title"
-                    placeholder="e.g., Weekly Support Session"
-                    value={meetingTitle}
-                    onChange={(e) => setMeetingTitle(e.target.value)}
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="meeting-date">Date</Label>
-                    <Input
-                      id="meeting-date"
-                      type="date"
-                      value={meetingDate}
-                      onChange={(e) => setMeetingDate(e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="meeting-time">Time</Label>
-                    <Input
-                      id="meeting-time"
-                      type="time"
-                      value={meetingTime}
-                      onChange={(e) => setMeetingTime(e.target.value)}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <Label htmlFor="meeting-description">Description (Optional)</Label>
-                  <Textarea
-                    id="meeting-description"
-                    placeholder="Meeting agenda or topics to discuss..."
-                    value={meetingDescription}
-                    onChange={(e) => setMeetingDescription(e.target.value)}
-                    rows={3}
-                  />
-                </div>
-
-                <Alert className="bg-green-50 border-green-200">
-                  <CheckCircle className="h-4 w-4 text-green-600" />
-                  <AlertDescription className="text-green-800 text-xs">
-                    All {selectedGroup.members} group members will be notified of this meeting.
-                  </AlertDescription>
-                </Alert>
-
-                <div className="flex gap-2">
-                  <Button onClick={handleCreateMeeting} className="flex-1">
-                    Schedule Meeting
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    onClick={() => {
-                      setShowScheduleMeeting(false)
-                      setMeetingTitle('')
-                      setMeetingDate('')
-                      setMeetingTime('')
-                      setMeetingDescription('')
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
-        )}
-
         {/* Post Detail Dialog with Enhanced Scrolling */}
         {selectedPost && (
           <Dialog open={showPostDetail} onOpenChange={setShowPostDetail}>
             <DialogContent className="max-w-5xl h-[95vh] flex flex-col p-0">
               <DialogHeader className="flex-shrink-0 p-6 pb-0">
                 <DialogTitle>Discussion Details</DialogTitle>
-                <DialogDescription>
-                  View the full discussion post and participate in the conversation with your peers.
-                </DialogDescription>
               </DialogHeader>
               
               <div className="flex-1 flex flex-col overflow-hidden">

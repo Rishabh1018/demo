@@ -4,6 +4,9 @@ import { Button } from './ui/button'
 import { Badge } from './ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs'
 import { Alert, AlertDescription } from './ui/alert'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog'
+import { Textarea } from './ui/textarea'
+import { Label } from './ui/label'
 import { 
   Calendar, 
   Clock, 
@@ -16,7 +19,9 @@ import {
   AlertCircle,
   Plus,
   Filter,
-  Download
+  Download,
+  Star,
+  StarHalf
 } from 'lucide-react'
 import { api, DEMO_USER_ID } from '../utils/api'
 
@@ -33,6 +38,18 @@ interface BookedSession {
   location?: string
   notes?: string
   createdAt: string
+  reviewed?: boolean
+  rating?: number
+  reviewComment?: string
+}
+
+interface Review {
+  sessionId: string
+  counselorId: string
+  userId: string
+  rating: number
+  comment?: string
+  timestamp: string
 }
 
 interface SessionStats {
@@ -46,6 +63,11 @@ export function MySessions({ onPageChange }: { onPageChange?: (page: string) => 
   const [sessions, setSessions] = useState<BookedSession[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<'all' | 'upcoming' | 'completed' | 'cancelled'>('all')
+  const [reviewDialogOpen, setReviewDialogOpen] = useState(false)
+  const [currentReviewSession, setCurrentReviewSession] = useState<BookedSession | null>(null)
+  const [reviewRating, setReviewRating] = useState(0)
+  const [reviewComment, setReviewComment] = useState('')
+  const [submittingReview, setSubmittingReview] = useState(false)
 
   useEffect(() => {
     fetchSessions()
@@ -123,7 +145,10 @@ export function MySessions({ onPageChange }: { onPageChange?: (page: string) => 
         status: 'completed',
         location: 'Campus Counseling Center - Crisis Room',
         notes: 'Crisis successfully managed. Follow-up scheduled.',
-        createdAt: new Date(Date.now() - 22 * 24 * 60 * 60 * 1000).toISOString()
+        createdAt: new Date(Date.now() - 22 * 24 * 60 * 60 * 1000).toISOString(),
+        reviewed: true,
+        rating: 5,
+        reviewComment: 'Dr. Rodriguez was incredibly helpful during my crisis. Felt supported and understood.'
       },
       {
         id: 'session_5',
@@ -215,6 +240,88 @@ export function MySessions({ onPageChange }: { onPageChange?: (page: string) => 
 
   const isUpcoming = (date: string) => {
     return new Date(date) > new Date()
+  }
+
+  const openReviewDialog = (session: BookedSession) => {
+    setCurrentReviewSession(session)
+    setReviewRating(session.rating || 0)
+    setReviewComment(session.reviewComment || '')
+    setReviewDialogOpen(true)
+  }
+
+  const submitReview = async () => {
+    if (!currentReviewSession || reviewRating === 0) return
+    
+    setSubmittingReview(true)
+    try {
+      const reviewData: Review = {
+        sessionId: currentReviewSession.id,
+        counselorId: currentReviewSession.counselorId,
+        userId: DEMO_USER_ID,
+        rating: reviewRating,
+        comment: reviewComment,
+        timestamp: new Date().toISOString()
+      }
+
+      await api.submitReview(reviewData)
+      
+      // Update the session locally
+      setSessions(prev => prev.map(session => 
+        session.id === currentReviewSession.id 
+          ? { 
+              ...session, 
+              reviewed: true, 
+              rating: reviewRating, 
+              reviewComment: reviewComment 
+            }
+          : session
+      ))
+
+      setReviewDialogOpen(false)
+      setCurrentReviewSession(null)
+      setReviewRating(0)
+      setReviewComment('')
+    } catch (error) {
+      console.error('Failed to submit review:', error)
+      // For demo, still update locally even if backend fails
+      setSessions(prev => prev.map(session => 
+        session.id === currentReviewSession.id 
+          ? { 
+              ...session, 
+              reviewed: true, 
+              rating: reviewRating, 
+              reviewComment: reviewComment 
+            }
+          : session
+      ))
+
+      setReviewDialogOpen(false)
+      setCurrentReviewSession(null)
+      setReviewRating(0)
+      setReviewComment('')
+    } finally {
+      setSubmittingReview(false)
+    }
+  }
+
+  const renderStarRating = (rating: number, interactive: boolean = false, onRatingChange?: (rating: number) => void) => {
+    const stars = []
+    for (let i = 1; i <= 5; i++) {
+      const filled = i <= rating
+      stars.push(
+        <button
+          key={i}
+          onClick={() => interactive && onRatingChange?.(i)}
+          disabled={!interactive}
+          className={`${interactive ? 'cursor-pointer hover:scale-110 transition-transform' : 'cursor-default'}`}
+        >
+          <Star 
+            className={`h-4 w-4 ${filled ? 'text-yellow-500 fill-current' : 'text-gray-300'}`} 
+          />
+        </button>
+      )
+    }
+    return <div className="flex space-x-1">{stars}</div>
   }
 
   const stats = getSessionStats()
@@ -400,12 +507,24 @@ export function MySessions({ onPageChange }: { onPageChange?: (page: string) => 
                         </div>
                       )}
 
+                      {session.reviewed && session.reviewComment && (
+                        <div className="mb-4">
+                          <p className="text-sm font-medium text-gray-700 mb-1">Your Review:</p>
+                          <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-200">
+                            <div className="flex items-center space-x-2 mb-2">
+                              {renderStarRating(session.rating || 0)}
+                            </div>
+                            <p className="text-sm text-gray-600">{session.reviewComment}</p>
+                          </div>
+                        </div>
+                      )}
+
                       <div className="flex justify-between items-center pt-4 border-t">
                         <p className="text-xs text-gray-500">
                           Booked on {new Date(session.createdAt).toLocaleDateString()}
                         </p>
                         
-                        <div className="flex space-x-2">
+                        <div className="flex flex-wrap gap-2">
                           {isUpcoming(session.date) && session.status === 'confirmed' && (
                             <>
                               <Button variant="outline" size="sm">
@@ -423,9 +542,31 @@ export function MySessions({ onPageChange }: { onPageChange?: (page: string) => 
                           )}
                           
                           {session.status === 'completed' && (
-                            <Button variant="outline" size="sm">
-                              View Summary
-                            </Button>
+                            <>
+                              <Button variant="outline" size="sm">
+                                View Summary
+                              </Button>
+                              {!session.reviewed ? (
+                                <Button 
+                                  variant="outline" 
+                                  size="sm"
+                                  onClick={() => openReviewDialog(session)}
+                                  className="text-blue-600 hover:text-blue-700 border-blue-200 hover:border-blue-300"
+                                >
+                                  <Star className="h-4 w-4 mr-1" />
+                                  Rate Session
+                                </Button>
+                              ) : (
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  onClick={() => openReviewDialog(session)}
+                                  className="text-xs text-gray-500 hover:text-gray-700"
+                                >
+                                  Edit Review
+                                </Button>
+                              )}
+                            </>
                           )}
                         </div>
                       </div>
@@ -445,6 +586,66 @@ export function MySessions({ onPageChange }: { onPageChange?: (page: string) => 
             For crisis situations, call our 24/7 crisis hotline at <strong>(555) 123-HELP</strong> or campus security at <strong>911</strong>.
           </AlertDescription>
         </Alert>
+
+        {/* Review Dialog */}
+        <Dialog open={reviewDialogOpen} onOpenChange={setReviewDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Rate Your Session</DialogTitle>
+              <DialogDescription>
+                Please rate your counseling session and share your feedback
+              </DialogDescription>
+            </DialogHeader>
+            
+            {currentReviewSession && (
+              <div className="space-y-4">
+                <div className="text-center">
+                  <h3 className="font-medium text-gray-900">{currentReviewSession.counselorName}</h3>
+                  <p className="text-sm text-gray-600">{currentReviewSession.sessionTypeLabel}</p>
+                  <p className="text-xs text-gray-500">
+                    {new Date(currentReviewSession.date).toLocaleDateString()} at {currentReviewSession.time}
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>How would you rate this session?</Label>
+                  <div className="flex justify-center">
+                    {renderStarRating(reviewRating, true, setReviewRating)}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="review-comment">Additional Comments (Optional)</Label>
+                  <Textarea
+                    id="review-comment"
+                    placeholder="Share your thoughts about the session..."
+                    value={reviewComment}
+                    onChange={(e) => setReviewComment(e.target.value)}
+                    className="resize-none"
+                    rows={3}
+                  />
+                </div>
+
+                <div className="flex space-x-3 pt-4">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setReviewDialogOpen(false)}
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    onClick={submitReview}
+                    disabled={reviewRating === 0 || submittingReview}
+                    className="flex-1"
+                  >
+                    {submittingReview ? 'Submitting...' : 'Submit Review'}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   )

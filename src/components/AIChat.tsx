@@ -40,13 +40,22 @@ export function AIChat() {
     "Try progressive muscle relaxation: tense and release each muscle group"
   ]
 
-  // Scroll to bottom when messages change
+  // Scroll to bottom when messages change (only within chat container)
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ 
+        behavior: 'smooth',
+        block: 'end',
+        inline: 'nearest'
+      })
+    }
   }
 
   useEffect(() => {
-    scrollToBottom()
+    // Only scroll if we have more than the initial message or if typing
+    if (messages.length > 1 || isTyping) {
+      scrollToBottom()
+    }
   }, [messages, isTyping])
 
   const crisisKeywords = ['suicide', 'kill myself', 'end it all', 'hurt myself', 'can\'t go on']
