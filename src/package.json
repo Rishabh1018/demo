@@ -1,6 +1,7 @@
 {
   "name": "nirvaan-mental-health-platform",
   "version": "1.0.0",
+  "private": true,
   "description": "Digital Psychological Intervention System - Set your mind free",
   "type": "module",
   "scripts": {
@@ -18,7 +19,7 @@
     "react-hook-form": "^7.55.0",
     "recharts": "^2.8.0",
     "sonner": "^1.4.0",
-    "motion": "^10.16.4",
+    "framer-motion": "^10.16.4",
     "react-slick": "^0.29.0",
     "react-responsive-masonry": "^2.1.7",
     "react-dnd": "^16.0.1",
